@@ -116,6 +116,23 @@ if(NOT RMLUI_INSTALL_TARGETS_DIR)
 	set(RMLUI_INSTALL_TARGETS_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/RmlUi")
 endif()
 
+# --- START MODIFICATION ---
+# Check if the user has placed freetype source in Dependencies
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Dependencies/freetype/CMakeLists.txt")
+    message(STATUS "Building Freetype from source...")
+    
+    # 1. Build the library from the folder
+    # EXCLUDE_FROM_ALL prevents it from installing system-wide when you install RmlUi
+    add_subdirectory(Dependencies/freetype EXCLUDE_FROM_ALL)
+
+    # 2. Create the Alias
+    # Freetype's build creates a target named 'freetype', but RmlUi looks for 'Freetype::Freetype'
+    if(NOT TARGET Freetype::Freetype)
+        add_library(Freetype::Freetype ALIAS freetype)
+    endif()
+endif()
+# --- END MODIFICATION ---
+
 include("CMake/Utilities.cmake")
 include("CMake/Dependencies.cmake")
 
@@ -153,15 +170,15 @@ endif()
 set_target_properties(rmlui PROPERTIES EXPORT_NAME "RmlUi")
 install(TARGETS rmlui EXPORT RmlUiTargets)
 
-if(RMLUI_IS_ROOT_PROJECT)
+#if(RMLUI_IS_ROOT_PROJECT)
 	# Skip installing any targets when RmlUi is included using `add_subdirectory`. Otherwise, if any of RmlUi's linked
 	# dependencies are not exported, then this results in errors about the dependency not being in any export set.
-	install(EXPORT RmlUiTargets
-		DESTINATION "${RMLUI_INSTALL_TARGETS_DIR}"
-		NAMESPACE RmlUi::
-		FILE RmlUiTargets.cmake
-	)
-endif()
+#	install(EXPORT RmlUiTargets
+#		DESTINATION "${RMLUI_INSTALL_TARGETS_DIR}"
+#		NAMESPACE RmlUi::
+#		FILE RmlUiTargets.cmake
+#	)
+#endif()
 
 install(DIRECTORY
 	"${CMAKE_CURRENT_SOURCE_DIR}/Include/RmlUi"
@@ -191,13 +208,13 @@ install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/CMake/Modules"
 	DESTINATION "${RMLUI_INSTALL_TARGETS_DIR}"
 )
 
-if(RMLUI_IS_ROOT_PROJECT)
+#if(RMLUI_IS_ROOT_PROJECT)
 	# Export build tree targets if RmlUi is the top-level project.
-	export(EXPORT RmlUiTargets
-		NAMESPACE RmlUi::
-		FILE RmlUiConfig.cmake
-	)
-endif()
+#	export(EXPORT RmlUiTargets
+#		NAMESPACE RmlUi::
+#		FILE RmlUiConfig.cmake
+#	)
+#endif()
 
 include("CMake/PackageUtilities.cmake")
 if(RMLUI_INSTALL_LICENSES_AND_BUILD_INFO)
