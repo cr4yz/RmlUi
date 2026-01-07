@@ -379,6 +379,11 @@ target_compile_definitions(rmlui_core PRIVATE "RMLUI_VERSION=\"${RMLUI_VERSION_S
 add_subdirectory("Elements")
 add_subdirectory("Layout")
 
+# Yoga flexbox layout engine (embedded in Dependencies/yoga).
+if(TARGET yogacore)
+	target_link_libraries(rmlui_core PRIVATE yogacore)
+endif()
+
 # Set up definitions to export functions and classes as appropriate
 get_target_property(rmlui_core_TYPE rmlui_core "TYPE")
 if(rmlui_core_TYPE STREQUAL "STATIC_LIBRARY")

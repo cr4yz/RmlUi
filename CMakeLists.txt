@@ -131,6 +131,12 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Dependencies/freetype/CMakeLists.txt")
         add_library(Freetype::Freetype ALIAS freetype)
     endif()
 endif()
+
+# Build Yoga (flexbox layout engine) from embedded sources if present.
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Dependencies/yoga/CMakeLists.txt")
+	message(STATUS "Building Yoga from source...")
+	add_subdirectory(Dependencies/yoga EXCLUDE_FROM_ALL)
+endif()
 # --- END MODIFICATION ---
 
 include("CMake/Utilities.cmake")
@@ -152,9 +158,14 @@ if(RMLUI_SHELL)
 	add_subdirectory("Backends")
 endif()
 
-add_subdirectory("Samples")
 
-if(RMLUI_TESTS)
+# The upstream repository contains sample and test targets. Some source distributions may omit these
+# folders, so guard their inclusion to keep the core library buildable.
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Samples/CMakeLists.txt")
+	add_subdirectory("Samples")
+endif()
+
+if(RMLUI_TESTS AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Tests/CMakeLists.txt")
 	add_subdirectory("Tests")
 endif()
 

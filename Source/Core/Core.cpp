@@ -18,7 +18,6 @@
 #include "ElementMeta.h"
 #include "EventSpecification.h"
 #include "FileInterfaceDefault.h"
-#include "Layout/LayoutPools.h"
 #include "PluginRegistry.h"
 #include "RenderManagerAccess.h"
 #include "StyleSheetFactory.h"
@@ -66,11 +65,9 @@ static void InitializeMemoryPools()
 {
 	Detail::InitializeElementInstancerPools();
 	ElementMetaPool::Initialize();
-	LayoutPools::Initialize();
 }
 static void ReleaseMemoryPools()
 {
-	LayoutPools::Shutdown();
 	ElementMetaPool::Shutdown();
 	Detail::ShutdownElementInstancerPools();
 }
