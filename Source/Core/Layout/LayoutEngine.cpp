@@ -275,6 +275,29 @@ static void SetYogaGap(YGNodeRef node, YGGutter gutter, Style::LengthPercentage 
 	}
 }
 
+static float YogaBaselineFunc(YGNodeConstRef node, float width, float height)
+{
+	Element* element = reinterpret_cast<Element*>(YGNodeGetContext(node));
+	if (auto text_element = rmlui_dynamic_cast<ElementText*>(element))
+	{
+		FontFaceHandle font_face = text_element->GetFontFaceHandle();
+		FontMetrics metrics{};
+		if (auto* font_engine = GetFontEngineInterface())
+			metrics = font_engine->GetFontMetrics(font_face);
+
+		const float line_height = std::max(0.f, text_element->GetLineHeight());
+
+		// FIX: Use std::abs to treat descent as a positive height magnitude
+		const float font_height = std::max(0.f, metrics.ascent + std::abs(metrics.descent));
+
+		const float leading = std::max(0.f, line_height - font_height);
+		const float baseline = leading * 0.5f + metrics.ascent;
+
+		return baseline;
+	}
+	return height;
+}
+
 static YGSize YogaMeasureFunc(YGNodeConstRef node, float width, YGMeasureMode width_mode, float height, YGMeasureMode height_mode)
 {
 	Element* element = reinterpret_cast<Element*>(YGNodeGetContext(node));
@@ -328,9 +351,12 @@ static YGSize YogaMeasureFunc(YGNodeConstRef node, float width, YGMeasureMode wi
 		if (num_lines == 0)
 			num_lines = 1;
 
-		const float line_height = std::max(0.f, text_element->GetLineHeight());
+		FontFaceHandle font_face = text_element->GetFontFaceHandle();
+		FontMetrics metrics = GetFontEngineInterface()->GetFontMetrics(font_face);
+		float tight_height = std::max(0.f, metrics.ascent + std::abs(metrics.descent));
+
 		float measured_width = max_line_width;
-		float measured_height = num_lines * line_height;
+		float measured_height = num_lines * tight_height;
 
 		// Respect the measure modes.
 		if (width_mode == YGMeasureModeExactly)
@@ -478,6 +504,11 @@ static YGNodeRef BuildYogaTreeRecursive(Element* element, YGConfigRef config)
 	if (is_leaf && (is_text || is_replaced))
 	{
 		YGNodeSetMeasureFunc(node, YogaMeasureFunc);
+
+		if (is_text)
+		{
+			YGNodeSetBaselineFunc(node, YogaBaselineFunc);
+		}
 	}
 	else
 	{
@@ -510,10 +541,10 @@ static void GenerateTextLines(ElementText* text_element, float available_width)
 	if (auto* font_engine = GetFontEngineInterface())
 		metrics = font_engine->GetFontMetrics(font_face);
 
+	const float font_height = std::max(0.f, metrics.ascent + std::abs(metrics.descent));
 	const float line_height = std::max(0.f, text_element->GetLineHeight());
-	const float font_height = std::max(0.f, metrics.ascent + metrics.descent);
 	const float leading = std::max(0.f, line_height - font_height);
-	const float baseline_offset = leading * 0.5f + metrics.ascent;
+	const float baseline_offset = std::floor(leading * 0.5f + metrics.ascent);
 
 	String line;
 	int line_length = 0;
