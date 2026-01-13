@@ -35,12 +35,23 @@ FontFaceHandle FontEngineInterfaceDefault::GetFontFaceHandle(const String& famil
 FontEffectsHandle FontEngineInterfaceDefault::PrepareFontEffects(FontFaceHandle handle, const FontEffectList& font_effects)
 {
 	auto handle_default = reinterpret_cast<FontFaceHandleDefault*>(handle);
+	if (!handle_default)
+		return (FontEffectsHandle)0;
 	return (FontEffectsHandle)handle_default->GenerateLayerConfiguration(font_effects);
 }
 
 const FontMetrics& FontEngineInterfaceDefault::GetFontMetrics(FontFaceHandle handle)
 {
 	auto handle_default = reinterpret_cast<FontFaceHandleDefault*>(handle);
+	if (!handle_default)
+	{
+		static const FontMetrics null_metrics = [] {
+			FontMetrics m{};
+			m.underline_thickness = 1.0f;
+			return m;
+		}();
+		return null_metrics;
+	}
 	return handle_default->GetFontMetrics();
 }
 
@@ -48,6 +59,8 @@ int FontEngineInterfaceDefault::GetStringWidth(FontFaceHandle handle, StringView
 	Character prior_character)
 {
 	auto handle_default = reinterpret_cast<FontFaceHandleDefault*>(handle);
+	if (!handle_default)
+		return 0;
 	return handle_default->GetStringWidth(string, text_shaping_context, prior_character);
 }
 
@@ -56,6 +69,8 @@ int FontEngineInterfaceDefault::GenerateString(RenderManager& render_manager, Fo
 	TexturedMeshList& mesh_list)
 {
 	auto handle_default = reinterpret_cast<FontFaceHandleDefault*>(handle);
+	if (!handle_default)
+		return 0;
 	return handle_default->GenerateString(render_manager, mesh_list, string, position, colour, opacity, text_shaping_context,
 		(int)font_effects_handle);
 }
@@ -63,6 +78,8 @@ int FontEngineInterfaceDefault::GenerateString(RenderManager& render_manager, Fo
 int FontEngineInterfaceDefault::GetVersion(FontFaceHandle handle)
 {
 	auto handle_default = reinterpret_cast<FontFaceHandleDefault*>(handle);
+	if (!handle_default)
+		return 0;
 	return handle_default->GetVersion();
 }
 

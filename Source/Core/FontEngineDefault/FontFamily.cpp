@@ -18,26 +18,48 @@ FontFamily::~FontFamily()
 
 FontFaceHandleDefault* FontFamily::GetFaceHandle(Style::FontStyle style, Style::FontWeight weight, int size)
 {
-	int best_dist = INT_MAX;
+	// First, attempt to find a face with an exact style match.
+	int best_weight_dist = INT_MAX;
 	FontFace* matching_face = nullptr;
 	for (size_t i = 0; i < font_faces.size(); i++)
 	{
 		FontFace* face = font_faces[i].face.get();
 
-		if (face->GetStyle() == style)
+		if (face->GetStyle() != style)
+			continue;
+
+		const int dist = Math::Absolute((int)face->GetWeight() - (int)weight);
+		if (dist == 0)
 		{
-			const int dist = Math::Absolute((int)face->GetWeight() - (int)weight);
-			if (dist == 0)
+			// Direct match for weight, break the loop early.
+			matching_face = face;
+			break;
+		}
+		else if (dist < best_weight_dist)
+		{
+			matching_face = face;
+			best_weight_dist = dist;
+		}
+	}
+
+	// If no face exists with the requested style, fall back to the closest available style.
+	// This avoids returning nullptr and ensures that text can still render.
+	if (!matching_face)
+	{
+		int best_style_dist = INT_MAX;
+		best_weight_dist = INT_MAX;
+
+		for (size_t i = 0; i < font_faces.size(); i++)
+		{
+			FontFace* face = font_faces[i].face.get();
+			const int style_dist = (face->GetStyle() == style ? 0 : 1);
+			const int weight_dist = Math::Absolute((int)face->GetWeight() - (int)weight);
+
+			if (style_dist < best_style_dist || (style_dist == best_style_dist && weight_dist < best_weight_dist))
 			{
-				// Direct match for weight, break the loop early.
 				matching_face = face;
-				break;
-			}
-			else if (dist < best_dist)
-			{
-				// Best match so far for weight, store the face and dist.
-				matching_face = face;
-				best_dist = dist;
+				best_style_dist = style_dist;
+				best_weight_dist = weight_dist;
 			}
 		}
 	}
@@ -45,7 +67,11 @@ FontFaceHandleDefault* FontFamily::GetFaceHandle(Style::FontStyle style, Style::
 	if (!matching_face)
 		return nullptr;
 
-	return matching_face->GetHandle(size, true);
+	// If the requested weight doesn't exist, we may end up selecting a lighter face. In that case,
+	// apply a synthetic weight adjustment so the rendered glyphs become visually heavier.
+	const int weight_delta = Math::Max((int)weight - (int)matching_face->GetWeight(), 0);
+
+	return matching_face->GetHandle(size, true, weight_delta);
 }
 
 FontFace* FontFamily::AddFace(FontFaceHandleFreetype ft_face, Style::FontStyle style, Style::FontWeight weight, UniquePtr<byte[]> face_memory)

@@ -19,6 +19,8 @@ public:
 	~FontFaceHandleDefault();
 
 	bool Initialize(FontFaceHandleFreetype face, int font_size, bool load_default_glyphs);
+	// If synthetic_weight_delta is positive, the face will be synthetically emboldened when rendering glyphs.
+	bool Initialize(FontFaceHandleFreetype face, int font_size, bool load_default_glyphs, int synthetic_weight_delta);
 
 	const FontMetrics& GetFontMetrics() const;
 
@@ -122,6 +124,7 @@ private:
 	FontMetrics metrics;
 
 	FontFaceHandleFreetype ft_face;
+	int synthetic_weight_delta = 0;
 };
 
 } // namespace Rml

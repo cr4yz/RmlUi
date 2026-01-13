@@ -25,10 +25,13 @@ namespace FreeType {
 	void GetFaceStyle(FontFaceHandleFreetype face, String* font_family, Style::FontStyle* style, Style::FontWeight* weight);
 
 	// Initializes a face for a given font size. Glyphs are filled with the ASCII subset, and the font face metrics are set.
-	bool InitialiseFaceHandle(FontFaceHandleFreetype face, int font_size, FontGlyphMap& glyphs, FontMetrics& metrics, bool load_default_glyphs);
+	// If synthetic_weight_delta is positive, glyphs will be synthetically emboldened to better match the requested weight.
+	bool InitialiseFaceHandle(FontFaceHandleFreetype face, int font_size, FontGlyphMap& glyphs, FontMetrics& metrics, bool load_default_glyphs,
+		int synthetic_weight_delta);
 
 	// Build a new glyph representing the given code point and append to 'glyphs'.
-	bool AppendGlyph(FontFaceHandleFreetype face, int font_size, Character character, FontGlyphMap& glyphs);
+	// If synthetic_weight_delta is positive, glyphs will be synthetically emboldened to better match the requested weight.
+	bool AppendGlyph(FontFaceHandleFreetype face, int font_size, Character character, FontGlyphMap& glyphs, int synthetic_weight_delta);
 
 	// Returns the kerning between two characters.
 	// 'font_size' value of zero assumes the font size is already set on the face, and skips this step for performance reasons.

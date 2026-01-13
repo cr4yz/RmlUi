@@ -27,13 +27,20 @@ FontFaceHandleDefault::~FontFaceHandleDefault()
 	layers.clear();
 }
 
+
 bool FontFaceHandleDefault::Initialize(FontFaceHandleFreetype face, int font_size, bool load_default_glyphs)
 {
+	return Initialize(face, font_size, load_default_glyphs, 0);
+}
+
+bool FontFaceHandleDefault::Initialize(FontFaceHandleFreetype face, int font_size, bool load_default_glyphs, int in_synthetic_weight_delta)
+{
 	ft_face = face;
+	synthetic_weight_delta = Math::Max(in_synthetic_weight_delta, 0);
 
 	RMLUI_ASSERTMSG(layer_configurations.empty(), "Initialize must only be called once.");
 
-	if (!FreeType::InitialiseFaceHandle(ft_face, font_size, glyphs, metrics, load_default_glyphs))
+	if (!FreeType::InitialiseFaceHandle(ft_face, font_size, glyphs, metrics, load_default_glyphs, synthetic_weight_delta))
 		return false;
 
 	has_kerning = FreeType::HasKerning(ft_face);
@@ -277,7 +284,7 @@ int FontFaceHandleDefault::GetVersion() const
 
 bool FontFaceHandleDefault::AppendGlyph(Character character)
 {
-	bool result = FreeType::AppendGlyph(ft_face, metrics.size, character, glyphs);
+	bool result = FreeType::AppendGlyph(ft_face, metrics.size, character, glyphs, synthetic_weight_delta);
 	return result;
 }
 

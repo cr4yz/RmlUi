@@ -19,9 +19,11 @@ public:
 	static bool Initialise();
 	static void Shutdown();
 
-	/// Returns a handle to a font face that can be used to position and render text. This will return the closest match
-	/// it can find, but in the event a font family is requested that does not exist, nullptr will be returned instead of a
-	/// valid handle.
+	/// Returns a handle to a font face that can be used to position and render text.
+	///
+	/// This will return the closest match it can find. When an invalid/missing font family is requested, the function
+	/// falls back to the first font family ever loaded by the font engine to guarantee that text can render as soon as at
+	/// least one font face has been loaded.
 	/// @param[in] family The family of the desired font handle.
 	/// @param[in] style The style of the desired font handle.
 	/// @param[in] weight The weight of the desired font handle.
@@ -62,6 +64,10 @@ private:
 
 	FontFamilyMap font_families;
 	FontFaceList fallback_font_faces;
+
+	// The first loaded font family (lowercase). Used as a last-resort fallback to guarantee that
+	// text can render even when an element requests an invalid/missing font-family.
+	String first_loaded_font_family;
 
 	static const String debugger_font_family_name;
 };

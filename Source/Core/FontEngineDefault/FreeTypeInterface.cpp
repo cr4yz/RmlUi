@@ -9,13 +9,15 @@
 #include FT_FREETYPE_H
 #include FT_MULTIPLE_MASTERS_H
 #include FT_TRUETYPE_TABLES_H
+#include FT_SYNTHESIS_H
 
 namespace Rml {
 
 static FT_Library ft_library = nullptr;
 
-static bool BuildGlyph(FT_Face ft_face, Character character, FontGlyphMap& glyphs, float bitmap_scaling_factor);
-static void BuildGlyphMap(FT_Face ft_face, int size, FontGlyphMap& glyphs, float bitmap_scaling_factor, bool load_default_glyphs);
+static bool BuildGlyph(FT_Face ft_face, Character character, FontGlyphMap& glyphs, float bitmap_scaling_factor, int synthetic_weight_delta);
+static void BuildGlyphMap(FT_Face ft_face, int size, FontGlyphMap& glyphs, float bitmap_scaling_factor, bool load_default_glyphs,
+	int synthetic_weight_delta);
 static void GenerateMetrics(FT_Face ft_face, FontMetrics& metrics, float bitmap_scaling_factor);
 static bool SetFontSize(FT_Face ft_face, int font_size, float& out_bitmap_scaling_factor);
 static void BitmapDownscale(byte* bitmap_new, int new_width, int new_height, const byte* bitmap_source, int width, int height, int pitch,
@@ -161,7 +163,8 @@ void FreeType::GetFaceStyle(FontFaceHandleFreetype in_face, String* font_family,
 	}
 }
 
-bool FreeType::InitialiseFaceHandle(FontFaceHandleFreetype face, int font_size, FontGlyphMap& glyphs, FontMetrics& metrics, bool load_default_glyphs)
+bool FreeType::InitialiseFaceHandle(FontFaceHandleFreetype face, int font_size, FontGlyphMap& glyphs, FontMetrics& metrics, bool load_default_glyphs,
+	int synthetic_weight_delta)
 {
 	FT_Face ft_face = (FT_Face)face;
 
@@ -172,7 +175,7 @@ bool FreeType::InitialiseFaceHandle(FontFaceHandleFreetype face, int font_size, 
 		return false;
 
 	// Construct the initial list of glyphs.
-	BuildGlyphMap(ft_face, font_size, glyphs, bitmap_scaling_factor, load_default_glyphs);
+	BuildGlyphMap(ft_face, font_size, glyphs, bitmap_scaling_factor, load_default_glyphs, synthetic_weight_delta);
 
 	// Generate the metrics for the handle.
 	GenerateMetrics(ft_face, metrics, bitmap_scaling_factor);
@@ -180,7 +183,7 @@ bool FreeType::InitialiseFaceHandle(FontFaceHandleFreetype face, int font_size, 
 	return true;
 }
 
-bool FreeType::AppendGlyph(FontFaceHandleFreetype face, int font_size, Character character, FontGlyphMap& glyphs)
+bool FreeType::AppendGlyph(FontFaceHandleFreetype face, int font_size, Character character, FontGlyphMap& glyphs, int synthetic_weight_delta)
 {
 	FT_Face ft_face = (FT_Face)face;
 
@@ -192,7 +195,7 @@ bool FreeType::AppendGlyph(FontFaceHandleFreetype face, int font_size, Character
 	if (!SetFontSize(ft_face, font_size, bitmap_scaling_factor))
 		return false;
 
-	if (!BuildGlyph(ft_face, character, glyphs, bitmap_scaling_factor))
+	if (!BuildGlyph(ft_face, character, glyphs, bitmap_scaling_factor, synthetic_weight_delta))
 		return false;
 
 	return true;
@@ -232,7 +235,8 @@ bool FreeType::HasKerning(FontFaceHandleFreetype face)
 	return FT_HAS_KERNING(ft_face);
 }
 
-static void BuildGlyphMap(FT_Face ft_face, int size, FontGlyphMap& glyphs, const float bitmap_scaling_factor, const bool load_default_glyphs)
+static void BuildGlyphMap(FT_Face ft_face, int size, FontGlyphMap& glyphs, const float bitmap_scaling_factor, const bool load_default_glyphs,
+	int synthetic_weight_delta)
 {
 	if (load_default_glyphs)
 	{
@@ -243,7 +247,7 @@ static void BuildGlyphMap(FT_Face ft_face, int size, FontGlyphMap& glyphs, const
 		FT_ULong code_max = 126;
 
 		for (FT_ULong character_code = code_min; character_code <= code_max; ++character_code)
-			BuildGlyph(ft_face, (Character)character_code, glyphs, bitmap_scaling_factor);
+			BuildGlyph(ft_face, (Character)character_code, glyphs, bitmap_scaling_factor, synthetic_weight_delta);
 	}
 
 	// Add a replacement character for rendering unknown characters.
@@ -274,7 +278,8 @@ static void BuildGlyphMap(FT_Face ft_face, int size, FontGlyphMap& glyphs, const
 	}
 }
 
-static bool BuildGlyph(FT_Face ft_face, const Character character, FontGlyphMap& glyphs, const float bitmap_scaling_factor)
+static bool BuildGlyph(FT_Face ft_face, const Character character, FontGlyphMap& glyphs, const float bitmap_scaling_factor,
+	const int synthetic_weight_delta)
 {
 	FT_UInt index = FT_Get_Char_Index(ft_face, (FT_ULong)character);
 	if (index == 0)
@@ -286,6 +291,24 @@ static bool BuildGlyph(FT_Face ft_face, const Character character, FontGlyphMap&
 		Log::Message(Log::LT_WARNING, "Unable to load glyph for character '%u' on the font face '%s %s'; error code: %d.", (unsigned int)character,
 			ft_face->family_name, ft_face->style_name, error);
 		return false;
+	}
+
+	// Apply synthetic weight if requested. This is used when the requested font weight does not
+	// exist in the loaded faces, in which case we pick the closest available face and synthetically
+	// embolden it to better match the requested weight.
+	if (synthetic_weight_delta > 0)
+	{
+		// Convert the CSS font-weight delta (typically in [100, 500]) to a fraction of the em size.
+		//
+		// FreeType's FT_GlyphSlot_AdjustWeight expects delta values in 16.16 fixed, where e.g.
+		// 0.05 (0x0CCC) is "very noticeable" per FreeType documentation.
+		constexpr float max_delta_em = 0.06f;
+		float delta_em = float(synthetic_weight_delta) * (1.f / 10000.f);
+		delta_em = Math::Clamp(delta_em, 0.f, max_delta_em);
+		const FT_Fixed delta_fixed = (FT_Fixed)(delta_em * 65536.f);
+
+		if (delta_fixed > 0)
+			FT_GlyphSlot_AdjustWeight(ft_face->glyph, delta_fixed, delta_fixed);
 	}
 
 	error = FT_Render_Glyph(ft_face->glyph, FT_RENDER_MODE_NORMAL);

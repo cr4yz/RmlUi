@@ -19,9 +19,11 @@ public:
 	bool LoadFontFace(Span<const byte> data, int face_index, const String& font_family, Style::FontStyle style, Style::FontWeight weight,
 		bool fallback_face) override;
 
-	/// Returns a handle to a font face that can be used to position and render text. This will return the closest match
-	/// it can find, but in the event a font family is requested that does not exist, NULL will be returned instead of a
-	/// valid handle.
+	/// Returns a handle to a font face that can be used to position and render text.
+	///
+	/// This will return the closest match it can find. When an invalid/missing font family is requested, it falls back to
+	/// the first font family ever loaded by the font engine to ensure that text can render as soon as at least one font face
+	/// has been loaded.
 	FontFaceHandle GetFontFaceHandle(const String& family, Style::FontStyle style, Style::FontWeight weight, int size) override;
 
 	/// Prepares for font effects by configuring a new, or returning an existing, layer configuration.

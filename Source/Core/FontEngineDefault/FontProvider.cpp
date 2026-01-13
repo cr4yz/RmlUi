@@ -51,13 +51,30 @@ FontFaceHandleDefault* FontProvider::GetFontFaceHandle(const String& family, Sty
 {
 	RMLUI_ASSERTMSG(family == StringUtilities::ToLower(family), "Font family name must be converted to lowercase before entering here.");
 
-	FontFamilyMap& families = Get().font_families;
+	FontProvider& provider = Get();
+	FontFamilyMap& families = provider.font_families;
 
-	auto it = families.find(family);
-	if (it == families.end())
-		return nullptr;
+	auto get_handle_for_family = [&](const String& family_name) -> FontFaceHandleDefault* {
+		auto it = families.find(family_name);
+		if (it == families.end())
+			return nullptr;
+		return it->second->GetFaceHandle(style, weight, size);
+	};
 
-	return it->second->GetFaceHandle(style, weight, size);
+	// First try the requested family.
+	FontFaceHandleDefault* handle = get_handle_for_family(family);
+
+	// If the requested family does not exist or does not contain a matching face, fall back to the
+	// first font-family that was ever loaded by the font engine. This guarantees that text can render
+	// as soon as at least one font face has been loaded.
+	if (!handle && !provider.first_loaded_font_family.empty())
+		handle = get_handle_for_family(provider.first_loaded_font_family);
+
+	// As an extra guard, attempt any available family if none of the above succeeded.
+	if (!handle && !families.empty())
+		handle = families.begin()->second->GetFaceHandle(style, weight, size);
+
+	return handle;
 }
 
 int FontProvider::CountFallbackFontFaces()
@@ -70,7 +87,7 @@ FontFaceHandleDefault* FontProvider::GetFallbackFontFace(int index, int font_siz
 	auto& faces = FontProvider::Get().fallback_font_faces;
 
 	if (index >= 0 && index < (int)faces.size())
-		return faces[index]->GetHandle(font_size, false);
+		return faces[index]->GetHandle(font_size, false, 0);
 
 	return nullptr;
 }
@@ -222,6 +239,10 @@ bool FontProvider::AddFace(FontFaceHandleFreetype face, const String& family, St
 	}
 
 	FontFace* font_face_result = font_family->AddFace(face, style, weight, std::move(face_memory));
+
+	// Store the first loaded font family as a last-resort fallback.
+	if (font_face_result && first_loaded_font_family.empty())
+		first_loaded_font_family = family_lower;
 
 	if (font_face_result && fallback_face)
 	{
