@@ -8,6 +8,23 @@ project("RmlUi"
 	LANGUAGES "C" "CXX"
 )
 
+if(MSVC)
+    # Compiler: Generate debug info (/Zi), limit full rebuilds (/Gm-)
+    add_compile_options(/Zi /Gm-)
+    
+    # Linker: Generate PDB file (/DEBUG) and enable optimizations (/OPT:REF)
+    # We apply this to both EXE and SHARED/MODULE linkers
+    foreach(flag_var
+            CMAKE_EXE_LINKER_FLAGS_RELEASE
+            CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO
+            CMAKE_SHARED_LINKER_FLAGS_RELEASE
+            CMAKE_SHARED_LINKER_FLAGS_RELWITHDEBINFO
+            CMAKE_MODULE_LINKER_FLAGS_RELEASE
+            CMAKE_MODULE_LINKER_FLAGS_RELWITHDEBINFO)
+        set(${flag_var} "${${flag_var}} /DEBUG /OPT:REF /OPT:ICF")
+    endforeach()
+endif()
+
 set(RMLUI_VERSION_RELEASE FALSE)
 
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)

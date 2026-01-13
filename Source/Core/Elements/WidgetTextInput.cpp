@@ -984,6 +984,13 @@ String WidgetTextInput::GetAttributeValue() const
 
 void WidgetTextInput::GetRelativeCursorIndices(int& out_cursor_line_index, int& out_cursor_character_index) const
 {
+	if (lines.empty())
+	{
+		out_cursor_line_index = 0;
+		out_cursor_character_index = 0;
+		return;
+	}
+
 	int line_begin = 0;
 
 	for (size_t i = 0; i < lines.size(); i++)
@@ -1022,6 +1029,21 @@ void WidgetTextInput::GetRelativeCursorIndices(int& out_cursor_line_index, int& 
 
 void WidgetTextInput::SetCursorFromRelativeIndices(int cursor_line_index, int cursor_character_index)
 {
+	// 1. Handle empty lines case to prevent accessing null memory
+	if (lines.empty())
+	{
+		absolute_cursor_index = 0;
+		cursor_wrap_down = false;
+		return;
+	}
+
+	// 2. Clamp the line index to valid bounds [0, size-1]
+	if (cursor_line_index < 0)
+		cursor_line_index = 0;
+	else if (cursor_line_index >= (int)lines.size())
+		cursor_line_index = (int)lines.size() - 1;
+
+	// Now this assertion will actually hold true logic-wise
 	RMLUI_ASSERT(cursor_line_index < (int)lines.size())
 
 	absolute_cursor_index = cursor_character_index;
@@ -1035,6 +1057,9 @@ void WidgetTextInput::SetCursorFromRelativeIndices(int cursor_line_index, int cu
 
 int WidgetTextInput::CalculateLineIndex(float position) const
 {
+	if (lines.empty())
+		return 0;
+
 	int line_index = int(position / GetLineHeight());
 	return Math::Clamp(line_index, 0, (int)(lines.size() - 1));
 }
@@ -1072,6 +1097,14 @@ float WidgetTextInput::GetAlignmentSpecificTextOffset(const Line& line) const
 
 int WidgetTextInput::CalculateCharacterIndex(int line_index, float position)
 {
+	if (lines.empty())
+		return 0;
+
+	if (line_index < 0)
+		line_index = 0;
+	else if (line_index >= (int)lines.size())
+		line_index = (int)lines.size() - 1;
+
 	int prev_offset = 0;
 	float prev_line_width = 0;
 
@@ -1204,7 +1237,12 @@ Vector2f WidgetTextInput::FormatText(float height_constraint)
 
 	const FontFaceHandle font_handle = parent->GetFontFaceHandle();
 	if (!font_handle)
+	{
+		lines.clear();
+		text_element->ClearLines();
+		selected_text_element->ClearLines();
 		return content_area;
+	}
 
 	const FontMetrics& font_metrics = GetFontEngineInterface()->GetFontMetrics(font_handle);
 
